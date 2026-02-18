@@ -1,0 +1,36 @@
+const rateLimit = new Map<string, { count: number; resetTime: number }>()
+
+interface RateLimitConfig {
+  maxRequests: number
+  windowMs: number
+}
+
+export function checkRateLimit(
+  key: string,
+  config: RateLimitConfig = { maxRequests: 10, windowMs: 3600000 }
+): { allowed: boolean; remaining: number } {
+  const now = Date.now()
+  const entry = rateLimit.get(key)
+
+  if (!entry || now > entry.resetTime) {
+    rateLimit.set(key, { count: 1, resetTime: now + config.windowMs })
+    return { allowed: true, remaining: config.maxRequests - 1 }
+  }
+
+  if (entry.count >= config.maxRequests) {
+    return { allowed: false, remaining: 0 }
+  }
+
+  entry.count++
+  return { allowed: true, remaining: config.maxRequests - entry.count }
+}
+
+// Cleanup old entries periodically
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of rateLimit) {
+    if (now > entry.resetTime) {
+      rateLimit.delete(key)
+    }
+  }
+}, 300000) // every 5 minutes
